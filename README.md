@@ -2,8 +2,6 @@
 
 AI-powered interview intelligence platform that tracks real-time company activity across GitHub, Reddit, news, and hiring trends.
 
-Built for students and job seekers who want to walk into interviews understanding what a company is actually building right now.
-
 ## Features
 
 - Real-time company tracking across engineering and public signals
