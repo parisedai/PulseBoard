@@ -1,11 +1,21 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 from db.database import create_tables
+from routers.websocket import websocket_endpoint
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def startup():
@@ -18,3 +28,7 @@ def startup():
 @app.get("/")
 def root():
     return {"message": "PulseBoard API is running"}
+
+@app.websocket("/ws/{company_name}")
+async def websocket_route(websocket: WebSocket, company_name: str):
+    await websocket_endpoint(websocket, company_name)
