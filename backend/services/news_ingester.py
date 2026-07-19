@@ -59,10 +59,5 @@ def save_signals(company_name, signals):
         db.close()
 
 if __name__ == "__main__":
-    print("First call:")
     signals = fetch_news_data("google")
-    print(f"fetched {len(signals)} signals")
-    
-    print("\nSecond call:")
-    signals = fetch_news_data("google")
-    print(f"fetched {len(signals)} signals")
+    save_signals("google", signals)

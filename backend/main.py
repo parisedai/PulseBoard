@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from db.database import create_tables
 from routers.websocket import websocket_endpoint
+from services.semantic_search import semantic_search
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -32,3 +33,8 @@ def root():
 @app.websocket("/ws/{company_name}")
 async def websocket_route(websocket: WebSocket, company_name: str):
     await websocket_endpoint(websocket, company_name)
+
+@app.get("/search")
+def search(query: str):
+    results = semantic_search(query)
+    return {"results": results}
