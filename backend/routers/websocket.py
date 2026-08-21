@@ -1,4 +1,4 @@
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 import json
 import traceback
 
@@ -37,11 +37,24 @@ async def websocket_endpoint(websocket: WebSocket, company_name: str):
             "company": company_name
         }))
 
+    except WebSocketDisconnect:
+        # Client closed the tab/connection mid-stream — nothing to send, nothing to log as an error
+        print(f"Client disconnected during processing for {company_name}")
+        return
+
     except Exception as e:
         print("WEBSOCKET ERROR:", traceback.format_exc())
-        await websocket.send_text(json.dumps({
-            "status": "error",
-            "message": str(e)
-        }))
+        try:
+            await websocket.send_text(json.dumps({
+                "status": "error",
+                "message": str(e)
+            }))
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+
     finally:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except RuntimeError:
+            # Already closed — ignore
+            pass
