@@ -37,6 +37,8 @@ async def websocket_endpoint(websocket: WebSocket, company_name: str):
         }))
         
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         await websocket.send_text(json.dumps({
             "status": "error",
             "message": str(e)

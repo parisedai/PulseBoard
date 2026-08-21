@@ -25,6 +25,7 @@ def fetch_github_data(company_name):
     url = f"https://api.github.com/orgs/{company_name}/repos"
     response = requests.get(url, headers=headers)
     repos = response.json()
+    print(response.status_code, repos)
     
     signals = []
     for repo in repos:
