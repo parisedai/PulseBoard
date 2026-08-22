@@ -2,8 +2,28 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from db.database import create_tables
 from routers.websocket import websocket_endpoint
-from services.semantic_search import semantic_search
+from services.github_ingester import fetch_github_data, save_signals
+from services.news_ingester import fetch_news_data
+from services.ai_analyzer import analyze_company, save_summary
 import logging
+
+@app.get("/analyze/{company_name}")
+def analyze(company_name: str):
+    try:
+        github_signals = fetch_github_data(company_name)
+        save_signals(company_name, github_signals)
+        news_signals = fetch_news_data(company_name)
+        save_signals(company_name, news_signals)
+        result = analyze_company(company_name)
+        save_summary(company_name, result["summary"], result["sentiment"])
+        return {
+            "status": "complete",
+            "summary": result["summary"],
+            "sentiment": result["sentiment"],
+            "company": company_name
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
