@@ -642,10 +642,6 @@ export default function App() {
   const [view, setView]           = useState("home")
   const [streamPos, setStreamPos] = useState(0)
   const [streamVisible, setStreamVisible] = useState(true)
-  const ws = useRef(null)
-
-  const WS_URL = (import.meta.env.VITE_WS_URL || "http://localhost:8000")
-    .replace("https://", "wss://").replace("http://", "ws://")
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -664,27 +660,48 @@ export default function App() {
     })
   }
 
-  const search = () => {
-    if (!company.trim() || loading) return
-    setLoading(true); setResult(null); setLogoError(false); setView("home")
-    cycleStatus()
-    ws.current = new WebSocket(`${WS_URL}/ws/${company.trim().toLowerCase()}`)
-    ws.current.onmessage = (e) => {
-      const d = JSON.parse(e.data)
-      if (d.status === "complete") {
-        setResult(d); setLoading(false); setBtnLabel("analyze →"); setView("result")
-      } else if (d.status === "error") {
-        setBtnLabel("server's playing hard to get →")
-        setLoading(false)
-        setTimeout(() => setBtnLabel("analyze →"), 2500)
-      }
+const search = async () => {
+  const companyName = company.trim()
+  if (!companyName || loading) return
+
+  setLoading(true); setResult(null); setLogoError(false); setView("home")
+  cycleStatus()
+
+  try {
+    const BACKEND_URL =
+      import.meta.env.VITE_API_URL ||
+      import.meta.env.VITE_BACKEND_URL ||
+      "https://pulseboard-8247.onrender.com"
+
+    const url = `${BACKEND_URL.replace(/\/$/, "")}/analyze/${encodeURIComponent(companyName.toLowerCase())}`
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || data.status !== "complete") {
+      throw new Error(data.message || "Analysis failed")
     }
-    ws.current.onerror = () => {
-      setBtnLabel("pipeline took a personal day →")
-      setLoading(false)
-      setTimeout(() => setBtnLabel("analyze →"), 2500)
-    }
+
+    setResult(data)
+    setBtnLabel("analyze →")
+    setView("result")
+  } catch (e) {
+    console.error("Analyze request failed:", e)
+    setBtnLabel("pipeline took a personal day →")
+    setTimeout(() => setBtnLabel("analyze →"), 2500)
+  } finally {
+    setLoading(false)
   }
+}
 
   const sentiment = result
     ? SENTIMENT[result.sentiment?.toLowerCase()] || SENTIMENT.neutral
