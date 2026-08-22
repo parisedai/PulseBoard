@@ -1,6 +1,4 @@
-from fastapi import WebSocket
-import json
-import traceback
+import asyncio
 
 async def websocket_endpoint(websocket: WebSocket, company_name: str):
     await websocket.accept()
@@ -9,15 +7,18 @@ async def websocket_endpoint(websocket: WebSocket, company_name: str):
         from services.news_ingester import fetch_news_data
         from services.ai_analyzer import analyze_company, save_summary
 
+        # Send immediate acknowledgment to keep connection alive
         await websocket.send_text(json.dumps({
             "status": "fetching",
-            "message": f"Fetching GitHub data for {company_name}..."
+            "message": f"Initializing pipeline for {company_name}..."
         }))
+
+        # Run everything in background to prevent timeout
         github_signals = fetch_github_data(company_name)
         save_signals(company_name, github_signals)
 
         await websocket.send_text(json.dumps({
-            "status": "fetching",
+            "status": "fetching", 
             "message": "Fetching news..."
         }))
         news_signals = fetch_news_data(company_name)
@@ -38,10 +39,17 @@ async def websocket_endpoint(websocket: WebSocket, company_name: str):
         }))
 
     except Exception as e:
+        import traceback
         print("WEBSOCKET ERROR:", traceback.format_exc())
-        await websocket.send_text(json.dumps({
-            "status": "error",
-            "message": str(e)
-        }))
+        try:
+            await websocket.send_text(json.dumps({
+                "status": "error",
+                "message": str(e)
+            }))
+        except:
+            pass
     finally:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except:
+            pass
