@@ -1,36 +1,47 @@
 import os
+import sys
+
 import requests
 from dotenv import load_dotenv
-import sys
+
 sys.path.append("/Users/parinitasedai/Desktop/pulseboard/backend")
 from db.database import SessionLocal
-from db.models import Signal, Company
+from db.models import Company, Signal
 from services.cache import get_cached, set_cache
-
 
 load_dotenv()
 
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
+
 def fetch_news_data(company_name):
+    company_name = company_name.strip().lower()
     cache_key = f"news:{company_name}"
     cached = get_cached(cache_key)
     if cached:
         print("cache hit!")
         return cached
-    
+
+    if not NEWS_API_KEY:
+        raise RuntimeError("NEWS_API_KEY is missing from the environment")
+
     url = f"https://newsapi.org/v2/everything?q={company_name}&apiKey={NEWS_API_KEY}&pageSize=10"
-    response = requests.get(url)
+    response = requests.get(url, timeout=20)
+    if response.status_code != 200:
+        raise RuntimeError(f"News API error: {response.status_code} {response.text[:300]}")
+
     articles = response.json().get("articles", [])
-    
     signals = []
     for article in articles:
+        title = article.get("title") or "Untitled article"
+        description = article.get("description") or "No description available"
+        url = article.get("url") or ""
         signals.append({
             "source": "news",
-            "content": f"{article['title']}: {article['description']}",
-            "url": article['url']
+            "content": f"{title}: {description}",
+            "url": url,
         })
-    
+
     set_cache(cache_key, signals)
     return signals
 
