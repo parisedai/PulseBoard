@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.database import create_tables
 from services.ai_analyzer import analyze_company, save_summary
+from services.cache import get_cached, get_cache_stats, set_cache
 from services.github_ingester import fetch_github_data, save_signals
 from services.news_ingester import fetch_news_data
 from services.semantic_search import semantic_search
@@ -54,9 +55,20 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/metrics/cache")
+def metrics_cache():
+    return get_cache_stats()
+
+
 @app.get("/analyze/{company_name}")
 def analyze(company_name: str):
     company_name = company_name.strip().lower()
+    cache_key = f"analysis:{company_name}"
+    cached_result = get_cached(cache_key)
+    if cached_result:
+        logger.info(f"Returning cached analysis for {company_name}")
+        return cached_result
+
     try:
         github_signals = fetch_github_data(company_name)
         save_signals(company_name, github_signals)
@@ -67,12 +79,14 @@ def analyze(company_name: str):
         result = analyze_company(company_name)
         save_summary(company_name, result["summary"], result["sentiment"])
 
-        return {
+        response = {
             "status": "complete",
             "summary": result["summary"],
             "sentiment": result["sentiment"],
             "company": company_name,
         }
+        set_cache(cache_key, response, ttl=86400)
+        return response
     except Exception as e:
         logger.exception("Analyze request failed")
         return {"status": "error", "message": str(e)}

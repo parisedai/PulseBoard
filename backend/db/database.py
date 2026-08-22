@@ -12,11 +12,15 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is missing from the environment")
 
+connect_args = {}
+if DATABASE_URL.startswith("postgresql"):
+    connect_args["sslmode"] = "require"
+
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     pool_recycle=1800,
-    connect_args={"sslmode": "require"},
+    connect_args=connect_args,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

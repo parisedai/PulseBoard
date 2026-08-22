@@ -29,18 +29,39 @@ def fetch_github_data(company_name):
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
     }
-    url = f"https://api.github.com/orgs/{company_name}/repos"
-    response = requests.get(url, headers=headers, timeout=20)
-    if response.status_code != 200:
-        raise RuntimeError(f"GitHub API error: {response.status_code} {response.text[:300]}")
 
-    repos = response.json()
+    repos = []
+    org_url = f"https://api.github.com/orgs/{company_name}/repos"
+    org_response = requests.get(org_url, headers=headers, timeout=20)
+
+    if org_response.status_code == 200:
+        repos = org_response.json()
+    elif org_response.status_code in (404, 410):
+        search_url = "https://api.github.com/search/repositories"
+        params = {
+            "q": f"{company_name} in:name",
+            "sort": "updated",
+            "order": "desc",
+            "per_page": 10,
+        }
+        search_response = requests.get(search_url, headers=headers, params=params, timeout=20)
+        if search_response.status_code != 200:
+            print(f"GitHub search fallback failed for {company_name}: {search_response.status_code}")
+            return []
+        repos = search_response.json().get("items", [])
+    else:
+        raise RuntimeError(
+            f"GitHub API error: {org_response.status_code} {org_response.text[:300]}"
+        )
+
     if not isinstance(repos, list):
         return []
 
     signals = []
     for repo in repos:
-        name = repo.get("name", "unknown")
+        if not isinstance(repo, dict):
+            continue
+        name = repo.get("name") or repo.get("full_name") or "unknown"
         description = repo.get("description") or "No description available"
         html_url = repo.get("html_url") or ""
         signals.append({
