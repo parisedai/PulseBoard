@@ -54,7 +54,22 @@ def root():
 def health():
     return {"status": "ok"}
 
+@app.get("/health/redis")
+def redis_health():
+    from services.cache import r
 
+    try:
+        return {
+            "configured": bool(os.getenv("REDIS_URL")),
+            "connected": bool(r.ping())
+        }
+    except Exception as e:
+        return {
+            "configured": bool(os.getenv("REDIS_URL")),
+            "connected": False,
+            "error": type(e).__name__
+        }
+    
 @app.get("/metrics/cache")
 def metrics_cache():
     return get_cache_stats()
